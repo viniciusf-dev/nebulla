@@ -1,5 +1,5 @@
 [package]
-name = "nebula"
+name = "nebula_embeddings"
 version = "0.1.0"
 authors = ["Vinicius Gurski Feraz <vinigurskiferraz@gmail.com>"]
 edition = "2021"
