@@ -1,16 +1,7 @@
-// Nebula Embeddings: A lightweight, high-performance text embedding model in Rust
-//
-// This implementation provides a minimal but functional embedding model that:
-// - Uses a bag-of-words approach with TF-IDF weighting
-// - Applies dimensionality reduction via random projections
-// - Processes text through tokenization and normalization
-// - Offers an immutable API design with thread safety
-// - Includes cosine similarity calculation for comparing embeddings
-
 use std::collections::{HashMap, HashSet};
-use std::fs::{self, File};
-use std::io::{self, BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::fs::{File};
+use std::io::{self, BufReader, Write};
+use std::path::Path;
 use std::sync::Arc;
 
 use rand::{Rng, SeedableRng};
@@ -18,7 +9,6 @@ use rand::rngs::StdRng;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-// Core data structures
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Embedding(Vec<f32>);
 
@@ -61,7 +51,6 @@ impl Default for ModelConfig {
     }
 }
 
-// Builder pattern for configuration
 pub struct ModelConfigBuilder {
     config: ModelConfig,
 }
@@ -98,7 +87,6 @@ impl ModelConfigBuilder {
     }
 }
 
-// Implementation for the Embedding type
 impl Embedding {
     pub fn new(values: Vec<f32>) -> Self {
         Self(values)
@@ -112,7 +100,6 @@ impl Embedding {
         self.0.len()
     }
 
-    // Normalize the embedding to unit length
     pub fn normalize(&self) -> Self {
         let magnitude: f32 = self.0.iter().map(|&x| x * x).sum::<f32>().sqrt();
         if magnitude > 1e-10 {
@@ -123,7 +110,6 @@ impl Embedding {
         }
     }
 
-    // Calculate cosine similarity between two embeddings
     pub fn cosine_similarity(&self, other: &Embedding) -> f32 {
         if self.dimension() != other.dimension() {
             panic!("Cannot compare embeddings of different dimensions");
@@ -145,7 +131,6 @@ impl Embedding {
     }
 }
 
-// Vocabulary implementation
 impl Vocabulary {
     fn new(word_to_index: HashMap<String, usize>, idf_values: Vec<f32>) -> Self {
         Self {
@@ -175,7 +160,6 @@ impl Vocabulary {
     }
 }
 
-// Projection matrix implementation
 impl ProjectionMatrix {
     fn new(input_dim: usize, output_dim: usize, seed: u64) -> Self {
         let mut rng = StdRng::seed_from_u64(seed);
@@ -184,7 +168,6 @@ impl ProjectionMatrix {
         for _ in 0..input_dim {
             let mut row = Vec::with_capacity(output_dim);
             for _ in 0..output_dim {
-                // Generate values from a normal distribution
                 let val = rng.gen::<f32>() * 2.0 - 1.0;
                 row.push(val);
             }
@@ -209,7 +192,6 @@ impl ProjectionMatrix {
             }
         }
 
-        // Normalize result
         let magnitude: f32 = result.iter().map(|&x| x * x).sum::<f32>().sqrt();
         if magnitude > 1e-10 {
             for value in &mut result {
@@ -221,7 +203,6 @@ impl ProjectionMatrix {
     }
 }
 
-// Text preprocessing utilities
 mod preprocessing {
     use std::collections::HashSet;
     use unicode_normalization::UnicodeNormalization;
@@ -242,26 +223,28 @@ mod preprocessing {
     }
 
     pub fn tokenize(text: &str) -> Vec<String> {
-        text.unicode_normalization()
-            .nfc()
+        
+        text.nfc()
             .collect::<String>()
             .to_lowercase()
+            
             .split(|c: char| !c.is_alphanumeric())
+            
             .filter(|s| !s.is_empty() && s.len() >= 2 && !STOP_WORDS.contains(s))
             .map(|s| s.to_string())
             .collect()
     }
-}
+}    
 
-// Model implementation
+
 impl NebulaModel {
-    // Build a new model from a collection of texts
+    
     pub fn train<I, S>(texts: I, config: ModelConfig) -> Result<Self, io::Error>
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        // Count word frequencies and document frequencies
+        
         let mut word_counts: HashMap<String, usize> = HashMap::new();
         let mut doc_counts: HashMap<String, usize> = HashMap::new();
         let mut document_count = 0;
@@ -280,21 +263,21 @@ impl NebulaModel {
             }
         }
 
-        // Filter vocabulary based on frequency
+       
         let mut vocab_words: Vec<(String, usize)> = word_counts
             .into_iter()
             .filter(|(_, count)| *count >= config.min_token_frequency)
             .collect();
 
-        // Sort by frequency (descending)
+        
         vocab_words.sort_by(|a, b| b.1.cmp(&a.1));
 
-        // Limit vocabulary size
+       
         if vocab_words.len() > config.max_vocabulary_size {
             vocab_words.truncate(config.max_vocabulary_size);
         }
 
-        // Create word-to-index mapping and IDF values
+       
         let mut word_to_index = HashMap::new();
         let mut idf_values = Vec::new();
 
@@ -305,10 +288,10 @@ impl NebulaModel {
             idf_values.push(idf);
         }
 
-        // Create vocabulary
+        
         let vocabulary = Vocabulary::new(word_to_index, idf_values);
 
-        // Create projection matrix
+        
         let projection = ProjectionMatrix::new(
             vocabulary.size(),
             config.embedding_dim,
@@ -322,40 +305,37 @@ impl NebulaModel {
         })
     }
 
-    // Generate an embedding for a text
+    
     pub fn embed(&self, text: &str) -> Embedding {
         let tokens = preprocessing::tokenize(text);
         let mut tf_values: HashMap<usize, f32> = HashMap::new();
         
-        // Calculate term frequencies
+       
         for token in tokens {
             if let Some(idx) = self.vocabulary.get_index(&token) {
                 *tf_values.entry(idx).or_insert(0.0) += 1.0;
             }
         }
         
-        // Apply TF-IDF weighting
+        
         for (idx, tf) in tf_values.iter_mut() {
             let idf = self.vocabulary.idf_values[*idx];
-            *tf = (*tf).sqrt() * idf; // Using sqrt of TF to dampen the effect of frequent terms
+            *tf = (*tf).sqrt() * idf; 
         }
         
-        // Project to lower-dimensional space
+        
         let embedding_values = self.projection.project(&tf_values);
         Embedding::new(embedding_values)
     }
 
-    // Get the vocabulary size
     pub fn vocabulary_size(&self) -> usize {
         self.vocabulary.size()
     }
 
-    // Get the embedding dimension
     pub fn embedding_dimension(&self) -> usize {
         self.config.embedding_dim
     }
 
-    // Save the model to a file
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), io::Error> {
         let serialized = serde_json::to_string(self)?;
         let mut file = File::create(path)?;
@@ -363,7 +343,7 @@ impl NebulaModel {
         Ok(())
     }
 
-    // Load a model from a file
+    
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
@@ -372,7 +352,6 @@ impl NebulaModel {
     }
 }
 
-// A facade for working with embeddings
 pub struct NebulaEmbeddings {
     model: Arc<NebulaModel>,
 }
@@ -406,14 +385,15 @@ impl NebulaEmbeddings {
     pub fn batch_embed<I, S>(&self, texts: I) -> Vec<Embedding>
     where
         I: IntoIterator<Item = S>,
-        S: AsRef<str>,
+        S: AsRef<str> + Send + Sync,  
     {
-        let texts_vec: Vec<_> = texts.into_iter().collect();
-        
+        let texts_vec: Vec<S> = texts.into_iter().collect();
+    
         texts_vec.par_iter()
             .map(|text| self.embed(text.as_ref()))
             .collect()
     }
+    
 
     pub fn vocabulary_size(&self) -> usize {
         self.model.vocabulary_size()
@@ -424,9 +404,9 @@ impl NebulaEmbeddings {
     }
 }
 
-// Simple example application to demonstrate usage
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Example texts for training
+    
     let training_texts = vec![
         "Rust is a systems programming language focused on safety, speed, and concurrency.",
         "Embeddings are dense vector representations of data in a continuous vector space.",
@@ -440,7 +420,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Continuous vector spaces allow for mathematical operations on discrete objects.",
     ];
 
-    // Configure and train the model
+    
     let config = ModelConfigBuilder::new()
         .embedding_dim(64)
         .min_token_frequency(2)
@@ -452,10 +432,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model = NebulaModel::train(training_texts, config)?;
     println!("Model trained with {} vocabulary items", model.vocabulary_size());
 
-    // Create the facade
+    
     let nebula = NebulaEmbeddings::new(model);
 
-    // Test embedding generation
+    
     let test_texts = vec![
         "Rust programming language provides memory safety",
         "Vector embeddings represent semantic meaning",
@@ -468,7 +448,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Embedded '{}' to {} dimensions", text, embedding.dimension());
     }
 
-    // Test similarity calculation
+    
     println!("\nTesting similarity:");
     for i in 0..test_texts.len() {
         for j in i+1..test_texts.len() {
@@ -478,19 +458,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Save the model
     let save_path = "nebula_model.json";
     nebula.model.save(save_path)?;
     println!("\nModel saved to {}", save_path);
 
-    // Example of loading model (commented out for example purposes)
-    // let loaded_nebula = NebulaEmbeddings::from_file(save_path)?;
-    // println!("Model loaded with {} vocabulary items", loaded_nebula.vocabulary_size());
-
     Ok(())
 }
 
-// Unit tests
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -552,7 +527,6 @@ mod tests {
         assert_eq!(emb1.dimension(), 10);
         assert_eq!(emb2.dimension(), 10);
         
-        // Similar documents should have higher similarity
         let sim1 = embeddings.similarity("test document one", "test document two");
         let sim2 = embeddings.similarity("test document one", "completely different");
         
@@ -568,13 +542,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("test_model.json");
         
-        // Save model
+       
         model.save(&file_path).unwrap();
         
-        // Load model
         let loaded_model = NebulaModel::load(&file_path).unwrap();
         
-        // Check that the models have the same properties
         assert_eq!(model.vocabulary_size(), loaded_model.vocabulary_size());
         assert_eq!(model.embedding_dimension(), loaded_model.embedding_dimension());
     }
