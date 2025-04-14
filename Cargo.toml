@@ -1,6 +1,28 @@
 [package]
-name = "nebula_embeddings"
+name = "nebula"
 version = "0.1.0"
-edition = "2024"
+authors = ["Vinicius Gurski Feraz <vinigurskiferraz@gmail.com>"]
+edition = "2021"
+description = "A lightweight text embedding model implemented in Rust"
+readme = "README.md"
+repository = "https://github.com/viniciusf-dev/nebula"
+license = "MIT"
+keywords = ["embeddings", "nlp", "machine-learning"]
+categories = ["text-processing", "science"]
 
 [dependencies]
+rand = "0.8.5"
+rayon = "1.7.0"
+serde = { version = "1.0.163", features = ["derive"] }
+serde_json = "1.0.96"
+unicode-normalization = "0.1.22"
+lazy_static = "1.4.0"
+
+[dev-dependencies]
+tempfile = "3.5.0"
+criterion = "0.4.0"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
