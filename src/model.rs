@@ -20,55 +20,74 @@ impl NebulaModel {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        let mut word_counts = HashMap::new();
-        let mut doc_counts = HashMap::new();
+        let mut word_counts: HashMap<String, usize> = HashMap::new();
+        let mut doc_counts: HashMap<String, usize> = HashMap::new();
         let mut doc_total = 0;
-        for t in texts {
+
+        for text in texts {
             doc_total += 1;
-            let toks = tokenize(t.as_ref());
-            let unique: HashSet<_> = toks.iter().cloned().collect();
-            for x in toks {
-                *word_counts.entry(x).or_insert(0) += 1;
+            let tokens = tokenize(text.as_ref());
+            let unique_tokens: HashSet<_> = tokens.iter().cloned().collect();
+
+            for token in tokens {
+                *word_counts.entry(token).or_insert(0) += 1;
             }
-            for x in unique {
-                *doc_counts.entry(x).or_insert(0) += 1;
+            for token in unique_tokens {
+                *doc_counts.entry(token).or_insert(0) += 1;
             }
         }
+
         let mut vocab: Vec<(String, usize)> = word_counts
             .into_iter()
-            .filter(|(_, c)| *c >= config.min_token_frequency)
+            .filter(|(_, count)| *count >= config.min_token_frequency)
             .collect();
         vocab.sort_by(|a, b| b.1.cmp(&a.1));
+
         if vocab.len() > config.max_vocabulary_size {
             vocab.truncate(config.max_vocabulary_size);
         }
-        let mut w2i = HashMap::new();
-        let mut idf = Vec::new();
-        for (i, (w, _)) in vocab.iter().enumerate() {
-            w2i.insert(w.clone(), i);
-            let df = doc_counts.get(w).copied().unwrap_or(0);
-            let val = (doc_total as f32 / (df as f32 + 1.0)).ln() + 1.0;
-            idf.push(val);
+
+        let mut word_to_index = HashMap::new();
+        let mut idf_values = Vec::new();
+
+        for (i, (word, _)) in vocab.iter().enumerate() {
+            word_to_index.insert(word.clone(), i);
+            let doc_freq = doc_counts.get(word).copied().unwrap_or(0);
+            let val = (doc_total as f32 / (doc_freq as f32 + 1.0)).ln() + 1.0;
+            idf_values.push(val);
         }
-        let v = Vocabulary::new(w2i, idf);
-        let p = ProjectionMatrix::new(v.size(), config.embedding_dim, config.random_seed);
-        Ok(Self { vocabulary: v, projection: p, config })
+
+        let vocabulary = Vocabulary::new(word_to_index, idf_values);
+        let projection = ProjectionMatrix::new(
+            vocabulary.size(),
+            config.embedding_dim,
+            config.random_seed,
+        );
+
+        Ok(Self {
+            vocabulary,
+            projection,
+            config,
+        })
     }
 
     pub fn embed(&self, text: &str) -> crate::Embedding {
-        let toks = tokenize(text);
-        let mut tf = HashMap::new();
-        for t in toks {
-            if let Some(i) = self.vocabulary.get_index(&t) {
-                *tf.entry(i).or_insert(0.0) += 1.0;
+        let tokens = tokenize(text);
+        let mut tf: HashMap<usize, f32> = HashMap::new();
+
+        for token in tokens {
+            if let Some(idx) = self.vocabulary.get_index(&token) {
+                *tf.entry(idx).or_insert(0.0) += 1.0;
             }
         }
-        for (i, val) in tf.iter_mut() {
-            let idf = self.vocabulary.idf_values[*i];
+
+        for (idx, val) in tf.iter_mut() {
+            let idf = self.vocabulary.idf_values[*idx];
             *val = (*val).sqrt() * idf;
         }
-        let emb = self.projection.project(&tf);
-        crate::Embedding::new(emb)
+
+        let embedding_values = self.projection.project(&tf);
+        crate::Embedding::new(embedding_values)
     }
 
     pub fn vocabulary_size(&self) -> usize {
@@ -80,16 +99,16 @@ impl NebulaModel {
     }
 
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), io::Error> {
-        let s = serde_json::to_string(self)?;
-        let mut f = File::create(path)?;
-        f.write_all(s.as_bytes())?;
+        let serialized = serde_json::to_string(self)?;
+        let mut file = File::create(path)?;
+        file.write_all(serialized.as_bytes())?;
         Ok(())
     }
 
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
-        let f = File::open(path)?;
-        let r = BufReader::new(f);
-        let m = serde_json::from_reader(r)?;
-        Ok(m)
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        let model = serde_json::from_reader(reader)?;
+        Ok(model)
     }
 }
