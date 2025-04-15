@@ -21,6 +21,7 @@ Nebulla is designed to efficiently convert text into numerical vector representa
 - [Usage](#usage)
   - [Library Usage](#library-usage)
   - [Command-Line Interface (CLI)](#command-line-interface-cli)
+  - [Dataset](#dataset)
 - [Examples](#examples)
 - [Contributing](#contributing)
 - [License](#license)
@@ -144,6 +145,9 @@ The repository is organized into several modules located in the `src/` directory
     ```
 
 ---
+
+### Dataset
+The current code version uses a parquet dataset from [WikiText Hugging Face](https://huggingface.co/datasets/Salesforce/wikitext)
 
 ## Installation
 
