@@ -10,6 +10,11 @@ Nebulla is designed to efficiently convert text into numerical vector representa
 
 - [Overview](#overview)
 - [Features](#features)
+- [How It Works](#how-it-works)
+  - [Training Process](#training-process)
+  - [Embedding Computation](#embedding-computation)
+  - [Similarity Comparisons](#similarity-comparisons)
+  - [Vector Operations](#vector-operations)
 - [Architecture and Code Structure](#architecture-and-code-structure)
   - [Preprocessing](#preprocessing)
   - [Vocabulary Management](#vocabulary-management)
@@ -22,6 +27,13 @@ Nebulla is designed to efficiently convert text into numerical vector representa
   - [Library Usage](#library-usage)
   - [Command-Line Interface (CLI)](#command-line-interface-cli)
   - [Dataset](#dataset)
+- [Advanced Features](#advanced-features)
+  - [Nearest Neighbors Search](#nearest-neighbors-search)
+  - [Vector Analogies](#vector-analogies)
+  - [Recall Evaluation](#recall-evaluation)
+  - [BM-25 Weighting](#bm-25-weighting)
+  - [Embedding Operations](#embedding-operations)
+  - [Performance Benchmarking](#performance-benchmarking)
 - [Examples](#examples)
 - [Contributing](#contributing)
 - [License](#license)
@@ -50,12 +62,59 @@ The model is tuned for performance in real-world applications while keeping the 
 - **Simple API:** A facade layer offers a unified interface to access the text embedding functionality.
 - **Lightweight:** Minimal dependencies with an emphasis on speed and low memory footprint.
 - **Easy Integration:** Use as a standalone CLI tool or integrate the library into your application.
+- **Advanced Algorithms:** Implements BM-25 weighting for better semantic understanding.
+- **Vector Operations:** Supports mathematical operations on embeddings like addition, subtraction, and scaling.
+- **Nearest Neighbors:** Efficiently find semantically similar content using cosine similarity.
+- **Vector Analogies:** Solve word analogy problems (A is to B as C is to ?) using vector operations.
+- **Performance Metrics:** Built-in evaluation using Recall@K and benchmarking tools.
+- **Parallel Processing:** Leverages Rayon for parallel computation of batch embeddings.
+
+---
+
+## How It Works
+
+### Training Process
+
+When you run `cargo run`, Nebulla performs the following training steps:
+
+1. **Data Loading**: Reads text data from a Parquet file (`dataset.parquet`) containing WikiText data.
+2. **Vocabulary Building**: Processes the texts, counts token frequencies, and builds a vocabulary of the most common tokens.
+3. **IDF Calculation**: Computes inverse document frequency (IDF) values for each token, which measure how informative a token is.
+4. **Embedding Initialization**: Creates embedding vectors for each token in the vocabulary using orthogonal initialization (optional) for better performance.
+5. **Model Configuration**: Uses parameters like embedding dimension, minimum token frequency, and n-gram settings to customize the model.
+
+### Embedding Computation
+
+When computing embeddings for texts, Nebulla:
+
+1. **Tokenizes** the input text into words and optionally generates n-grams.
+2. **Computes term frequencies** (TF) for each token in the input.
+3. **Applies BM-25 weighting** to balance term frequency with document length and IDF values.
+4. **Projects** the sparse TF-IDF vector into a dense embedding space using the projection matrix.
+5. **Normalizes** the final embedding vector to enable reliable similarity calculations.
+
+### Similarity Comparisons
+
+Nebulla compares texts by:
+
+1. **Computing embeddings** for each text.
+2. **Calculating cosine similarity** between the normalized embedding vectors, which measures the angle between them.
+3. **Ranking results** by similarity score for nearest neighbor searches.
+
+### Vector Operations
+
+The model supports vector operations that enable semantic reasoning:
+
+1. **Addition**: Combining semantic concepts (e.g., "king" + "woman").
+2. **Subtraction**: Finding relationships between concepts (e.g., "king" - "man").
+3. **Scaling**: Emphasizing or de-emphasizing certain embedding dimensions.
+4. **Normalization**: Ensuring vectors have unit length for consistent similarity calculations.
 
 ---
 
 ## Architecture and Code Structure
 
-The repository is organized into several modules located in the `src/` directory. Here’s an in-depth look at each component:
+The repository is organized into several modules located in the `src/` directory. Here's an in-depth look at each component:
 
 ### Preprocessing
 
@@ -64,7 +123,7 @@ The repository is organized into several modules located in the `src/` directory
   - Normalizes input text by converting to lowercase, removing punctuation, and trimming whitespace.
   - Tokenizes the normalized text into individual tokens.
 - **How It Works:**  
-  The module defines helper functions that process the raw input string before it’s fed into the model. This standardization ensures consistency in tokenization and subsequent embedding lookup.
+  The module defines helper functions that process the raw input string before it's fed into the model. This standardization ensures consistency in tokenization and subsequent embedding lookup.
 - **Key Functions:**  
   - `normalize(text: &str) -> String`
   - `tokenize(text: &str) -> Vec<String>`
@@ -179,6 +238,101 @@ The current code version uses a parquet dataset from [WikiText Hugging Face](htt
 
 ---
 
+## Advanced Features
+
+### Nearest Neighbors Search
+
+Nebulla can efficiently find the most semantically similar texts from a collection:
+
+```rust
+// Find the top 5 most similar candidates to a query
+let results = nebula.nearest_neighbors(query_text, &candidate_texts, 5);
+
+// Results contain indices and similarity scores
+for (idx, score) in results {
+    println!("Similar text: {}, Score: {}", candidate_texts[idx], score);
+}
+```
+
+The nearest neighbor functionality uses cosine similarity between normalized embedding vectors and returns the top K results.
+
+### Vector Analogies
+
+Nebulla can solve analogy problems using vector arithmetic:
+
+```rust
+// If a is to b as c is to what?
+let results = nebula.analogy(a, b, c, &candidates, k);
+```
+
+This works by:
+1. Computing the relationship vector between `a` and `b` (b - a)
+2. Applying this relationship to `c` (c + (b - a))
+3. Finding candidates most similar to the resulting vector
+
+This makes it possible to answer questions like "king is to queen as man is to ?" (answer: woman).
+
+### Recall Evaluation
+
+The model includes a built-in recall evaluation system:
+
+```rust
+let recall = compute_recall_at_k(&nebula, &test_texts, k);
+```
+
+This measures the model's ability to retrieve known relevant texts within the top K results. This is a common metric in information retrieval systems.
+
+### BM-25 Weighting
+
+Unlike basic TF-IDF weighting, Nebulla uses the advanced BM-25 algorithm for token weighting:
+
+```rust
+// BM-25 formula implementation from model.rs
+let k1 = 1.2;
+let b = 0.75;
+let normalized_freq = freq / total_tokens;
+let term_saturation = ((k1 + 1.0) * normalized_freq) / 
+                      (k1 * (1.0 - b + b) + normalized_freq);
+            
+*val = term_saturation * idf;
+```
+
+BM-25 addresses the saturation problem in basic TF weighting, preventing very frequent terms from dominating the embedding.
+
+### Embedding Operations
+
+Nebulla supports various mathematical operations on embeddings:
+
+```rust
+// Add two embeddings
+let combined = &embedding_a + &embedding_b;
+
+// Find the difference between embeddings
+let difference = &embedding_a - &embedding_b;
+
+// Scale an embedding
+let scaled = &embedding * 0.5;
+
+// Calculate distance between embeddings
+let distance = embedding_a.distance(&embedding_b);
+```
+
+These operations enable semantic reasoning and exploration of the embedding space.
+
+### Performance Benchmarking
+
+The library includes tools for performance measurement:
+
+```rust
+let benchmark_result = benchmark_model(&mut nebula, &texts, runs);
+println!("Throughput: {} texts/sec", benchmark_result.throughput);
+println!("Average embedding time: {} ms", benchmark_result.avg_embedding_time);
+```
+
+This helps when optimizing the model for production use cases.
+
+---
+
 ## Usage
 
 ### Library Usage
@@ -193,11 +347,11 @@ nebulla = { git = "https://github.com/viniciusf-dev/nebulla.git" }
 Then import and use the API:
 
 ```rust
-use nebulla::facade::Nebulla;
+use nebulla::facade::NebulaEmbeddings;
 
 fn main() {
     // Initialize Nebulla with default configuration or a custom one from `model_config`
-    let model = Nebulla::new();
+    let model = NebulaEmbeddings::new();
     let text = "The quick brown fox jumps over the lazy dog.";
     let embedding = model.embed(text);
     println!("Computed Embedding: {:?}", embedding);
@@ -209,10 +363,16 @@ fn main() {
 After building the project, you can run the CLI:
 
 ```bash
-cargo run -- "Your text to embed goes here."
+cargo run
 ```
 
-This command will output the computed embedding vector to the terminal.
+This will:
+1. Load the WikiText dataset from `dataset.parquet`
+2. Train a new embedding model with the specified configuration
+3. Run similarity comparisons between sample texts
+4. Evaluate the model using Recall@K metric
+5. Demonstrate vector analogies
+6. Save the trained model to `nebula_model.json`
 
 ---
 
@@ -221,29 +381,57 @@ This command will output the computed embedding vector to the terminal.
 ### Example: Using the Facade to Compute an Embedding
 
 ```rust
-use nebulla::facade::Nebulla;
+use nebulla::facade::NebulaEmbeddings;
 
 fn main() {
     let text = "Rust is fast and memory efficient.";
-    let model = Nebulla::new(); // Uses default configuration
+    let model = NebulaEmbeddings::new(); // Uses default configuration
     let embedding = model.embed(text);
     println!("Embedding for the input text: {:?}", embedding);
 }
 ```
 
-### Example: Inspecting Vocabulary
-
-If you wish to examine or extend the vocabulary, you may use methods from the `vocabulary` module:
+### Example: Finding Similar Texts
 
 ```rust
-use nebulla::vocabulary::Vocabulary;
+use nebulla::facade::NebulaEmbeddings;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let vocab = Vocabulary::from_file("path/to/vocab.txt")?;
-    if let Some(index) = vocab.get_index("rust") {
-        println!("The token 'rust' is mapped to index: {}", index);
+fn main() {
+    let model = NebulaEmbeddings::new();
+    let query = "Artificial intelligence and machine learning";
+    let candidates = vec![
+        "Deep neural networks are transforming AI research".to_string(),
+        "Efficient memory management in Rust".to_string(),
+        "Natural language processing models".to_string(),
+        "Web development frameworks comparison".to_string(),
+    ];
+    
+    let results = model.nearest_neighbors(query, &candidates, 2);
+    for (idx, score) in results {
+        println!("Similar text: {}, Score: {:.4}", candidates[idx], score);
     }
-    Ok(())
+}
+```
+
+### Example: Solving Analogies
+
+```rust
+use nebulla::facade::NebulaEmbeddings;
+
+fn main() {
+    let model = NebulaEmbeddings::new();
+    let a = "king";
+    let b = "queen";
+    let c = "man";
+    let candidates = vec![
+        "woman".to_string(),
+        "person".to_string(),
+        "royal".to_string(),
+        "girl".to_string(),
+    ];
+    
+    let results = model.analogy(a, b, c, &candidates, 1);
+    println!("'{}' is to '{}' as '{}' is to '{}'", a, b, c, candidates[results[0].0]);
 }
 ```
 
@@ -280,25 +468,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ---
 
 *Nebulla* is a project dedicated to high performance, clean code, and ease of use in text embedding tasks. We hope this README provides clarity on both how to get started and the inner workings of the model.
-
----
-
-### Explanation of How the Model Works
-
-1. **Preprocessing:**  
-   The text input is first normalized (lowercase, punctuation removal, etc.) and tokenized. This process ensures that the tokens match those expected in the vocabulary.
-
-2. **Vocabulary Mapping:**  
-   The tokenized text is then mapped to indices using the vocabulary manager. This is crucial for consistent lookup of embeddings.
-
-3. **Embedding Lookup & Computation:**  
-   The indices retrieved are fed into the embedding module, where each index is associated with a pre-trained (or initialized) vector. The result is a set of vector representations corresponding to the tokens.
-
-4. **Projection:**  
-   An optional projection layer performs a linear transformation on the combined embeddings. This may involve dimensionality reduction or adaptation to a different representation space required for downstream tasks.
-
-5. **Facade Integration:**  
-   Finally, the `facade.rs` module acts as the public API. It orchestrates the preprocessing, lookup, and projection steps so that the user simply receives the final embedding vector.
-
-This modular design not only promotes high performance (by leveraging Rust’s efficiency) but also ensures that each stage of the text embedding pipeline is easy to test, extend, and maintain.
-
