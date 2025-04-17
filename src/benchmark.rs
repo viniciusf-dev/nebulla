@@ -8,7 +8,7 @@ pub struct BenchmarkResult {
     pub num_texts: usize,
 }
 
-pub fn benchmark_model(model: &NebulaEmbeddings, texts: &[String], num_runs: usize) -> BenchmarkResult {
+pub fn benchmark_model(model: &mut NebulaEmbeddings, texts: &[String], num_runs: usize) -> BenchmarkResult {
     let mut total_time = Duration::new(0, 0);
     let mut embedding_times = Vec::with_capacity(texts.len() * num_runs);
     
@@ -17,9 +17,11 @@ pub fn benchmark_model(model: &NebulaEmbeddings, texts: &[String], num_runs: usi
         
         for text in texts {
             let embedding_start = Instant::now();
-            let _embedding = model.embed(text);
+            let embedding = model.embed(text);
             let embedding_time = embedding_start.elapsed();
             embedding_times.push(embedding_time);
+            
+            model.cache_embedding(text, embedding);
         }
         
         total_time += start.elapsed();
