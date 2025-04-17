@@ -1,4 +1,4 @@
-use crate::preprocessing::tokenize;
+use crate::preprocessing::{tokenize, process_text};
 use crate::{Vocabulary, ProjectionMatrix, ModelConfig};
 use std::collections::{HashMap, HashSet};
 use std::io;
@@ -6,6 +6,7 @@ use serde::{Serialize, Deserialize};
 use std::fs::File;
 use std::path::Path;
 use std::io::{BufReader, Write};
+use rayon::prelude::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NebulaModel {
@@ -24,13 +25,17 @@ impl NebulaModel {
         let mut doc_counts: HashMap<String, usize> = HashMap::new();
         let mut doc_total = 0;
 
-        for text in texts {
+        let texts_vec: Vec<S> = texts.into_iter().collect();
+        let processed_texts: Vec<Vec<String>> = texts_vec.par_iter()
+            .map(|text| process_text(text.as_ref(), config.use_ngrams))
+            .collect();
+
+        for tokens in processed_texts {
             doc_total += 1;
-            let tokens = tokenize(text.as_ref());
             let unique_tokens: HashSet<_> = tokens.iter().cloned().collect();
 
-            for token in tokens {
-                *word_counts.entry(token).or_insert(0) += 1;
+            for token in &tokens {
+                *word_counts.entry(token.clone()).or_insert(0) += 1;
             }
             for token in unique_tokens {
                 *doc_counts.entry(token).or_insert(0) += 1;
@@ -53,7 +58,8 @@ impl NebulaModel {
         for (i, (word, _)) in vocab.iter().enumerate() {
             word_to_index.insert(word.clone(), i);
             let doc_freq = doc_counts.get(word).copied().unwrap_or(0);
-            let val = (doc_total as f32 / (doc_freq as f32 + 1.0)).ln() + 1.0;
+            
+            let val = ((doc_total as f32 + 1.0) / (doc_freq as f32 + 0.5)).ln();
             idf_values.push(val);
         }
 
@@ -62,6 +68,7 @@ impl NebulaModel {
             vocabulary.size(),
             config.embedding_dim,
             config.random_seed,
+            config.use_orthogonal_init,
         );
 
         Ok(Self {
@@ -72,8 +79,13 @@ impl NebulaModel {
     }
 
     pub fn embed(&self, text: &str) -> crate::Embedding {
-        let tokens = tokenize(text);
+        let tokens = process_text(text, self.config.use_ngrams);
         let mut tf: HashMap<usize, f32> = HashMap::new();
+        let total_tokens = tokens.len() as f32;
+
+        if total_tokens == 0.0 {
+            return crate::Embedding::new(vec![0.0; self.config.embedding_dim]);
+        }
 
         for token in tokens {
             if let Some(idx) = self.vocabulary.get_index(&token) {
@@ -82,12 +94,20 @@ impl NebulaModel {
         }
 
         for (idx, val) in tf.iter_mut() {
+            let freq = *val;
             let idf = self.vocabulary.idf_values[*idx];
-            *val = (*val).sqrt() * idf;
+            
+            let k1 = 1.2;
+            let b = 0.75;
+            let normalized_freq = freq / total_tokens;
+            let term_saturation = ((k1 + 1.0) * normalized_freq) / 
+                                 (k1 * (1.0 - b + b) + normalized_freq);
+            
+            *val = term_saturation * idf;
         }
 
         let embedding_values = self.projection.project(&tf);
-        crate::Embedding::new(embedding_values)
+        crate::Embedding::new(embedding_values).normalize()
     }
 
     pub fn vocabulary_size(&self) -> usize {
