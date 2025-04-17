@@ -15,12 +15,41 @@ lazy_static! {
     };
 }
 
-pub fn tokenize(text: &str) -> Vec<String> {
+pub fn normalize(text: &str) -> String {
     text.nfc()
         .collect::<String>()
         .to_lowercase()
+}
+
+pub fn tokenize(text: &str) -> Vec<String> {
+    let normalized = normalize(text);
+    normalized
         .split(|c: char| !c.is_alphanumeric())
         .filter(|s| !s.is_empty() && s.len() >= 2 && !STOP_WORDS.contains(s))
         .map(|s| s.to_string())
         .collect()
+}
+
+pub fn ngrams(tokens: &[String], n: usize) -> Vec<String> {
+    if tokens.is_empty() || n > tokens.len() {
+        return Vec::new();
+    }
+    
+    (0..=tokens.len() - n)
+        .map(|i| tokens[i..i + n].join("_"))
+        .collect()
+}
+
+pub fn process_text(text: &str, use_ngrams: bool) -> Vec<String> {
+    let tokens = tokenize(text);
+    
+    if !use_ngrams || tokens.len() < 2 {
+        return tokens;
+    }
+    
+    let mut result = tokens.clone();
+    let bigrams = ngrams(&tokens, 2);
+    result.extend(bigrams);
+    
+    result
 }
