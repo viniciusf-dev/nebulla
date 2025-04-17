@@ -1,4 +1,4 @@
-use crate::preprocessing::{tokenize, process_text};
+use crate::preprocessing::process_text;
 use crate::{Vocabulary, ProjectionMatrix, ModelConfig};
 use std::collections::{HashMap, HashSet};
 use std::io;
@@ -25,10 +25,9 @@ impl NebulaModel {
         let mut doc_counts: HashMap<String, usize> = HashMap::new();
         let mut doc_total = 0;
 
-        let texts_vec: Vec<S> = texts.into_iter().collect();
-        let processed_texts: Vec<Vec<String>> = texts_vec.par_iter()
-            .map(|text| process_text(text.as_ref(), config.use_ngrams))
-            .collect();
+        let processed_texts: Vec<Vec<String>> = texts_vec.iter()
+        .map(|text| process_text(text.as_ref(), config.use_ngrams))
+        .collect();
 
         for tokens in processed_texts {
             doc_total += 1;

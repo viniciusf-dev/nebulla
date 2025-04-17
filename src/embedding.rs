@@ -4,6 +4,7 @@ use std::ops::{Add, Mul};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Embedding(pub Vec<f32>);
 
+
 impl Embedding {
     pub fn new(values: Vec<f32>) -> Self {
         Self(values)
@@ -65,17 +66,17 @@ impl Embedding {
     }
 }
 
-impl Add for &Embedding {
+impl std::ops::Sub for &Embedding {
     type Output = Embedding;
     
-    fn add(self, other: &Embedding) -> Embedding {
+    fn sub(self, other: &Embedding) -> Embedding {
         if self.dimension() != other.dimension() {
-            panic!("Cannot add embeddings of different dimensions");
+            panic!("Cannot subtract embeddings of different dimensions");
         }
         
         let values = self.0.iter()
             .zip(other.0.iter())
-            .map(|(&a, &b)| a + b)
+            .map(|(&a, &b)| a - b)
             .collect();
             
         Embedding(values)
