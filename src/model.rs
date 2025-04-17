@@ -6,7 +6,6 @@ use serde::{Serialize, Deserialize};
 use std::fs::File;
 use std::path::Path;
 use std::io::{BufReader, Write};
-use rayon::prelude::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NebulaModel {
@@ -25,9 +24,11 @@ impl NebulaModel {
         let mut doc_counts: HashMap<String, usize> = HashMap::new();
         let mut doc_total = 0;
 
+        let texts_vec: Vec<S> = texts.into_iter().collect();
+
         let processed_texts: Vec<Vec<String>> = texts_vec.iter()
-        .map(|text| process_text(text.as_ref(), config.use_ngrams))
-        .collect();
+            .map(|text| process_text(text.as_ref(), config.use_ngrams))
+            .collect();
 
         for tokens in processed_texts {
             doc_total += 1;

@@ -25,27 +25,29 @@ impl NebulaEmbeddings {
         ModelConfigBuilder::new()
     }
 
-    pub fn embed(&mut self, text: &str) -> Embedding {
+    pub fn embed(&self, text: &str) -> Embedding {
         if let Some(cached) = self.cache.get(text) {
             return cached.clone();
         }
         
         let embedding = self.model.embed(text);
         
-        if self.cache.len() < 10000 {
-            self.cache.insert(text.to_string(), embedding.clone());
-        }
-        
         embedding
     }
     
-    pub fn similarity(&mut self, a: &str, b: &str) -> f32 {
+    pub fn cache_embedding(&mut self, text: &str, embedding: Embedding) {
+        if self.cache.len() < 10000 {
+            self.cache.insert(text.to_string(), embedding);
+        }
+    }
+    
+    pub fn similarity(&self, a: &str, b: &str) -> f32 {
         let e1 = self.embed(a);
         let e2 = self.embed(b);
         e1.cosine_similarity(&e2)
     }
     
-    pub fn batch_embed<I, S>(&mut self, texts: I) -> Vec<Embedding>
+    pub fn batch_embed<I, S>(&self, texts: I) -> Vec<Embedding>
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str> + Send + Sync,
@@ -54,21 +56,41 @@ impl NebulaEmbeddings {
         v.par_iter().map(|t| self.embed(t.as_ref())).collect()
     }
     
-    pub fn nearest_neighbors<S: AsRef<str> + Sync>(&mut self, query: S, candidates: &[S], k: usize) -> Vec<(usize, f32)> {
+    pub fn nearest_neighbors<Q, C>(
+        &self,
+        query: Q,
+        candidates: &[C],
+        k: usize,
+    ) -> Vec<(usize, f32)>
+    where
+        Q: AsRef<str> + Sync,
+        C: AsRef<str> + Sync,
+    {
         let query_embedding = self.embed(query.as_ref());
         let candidate_embeddings: Vec<Embedding> = self.batch_embed(candidates);
-        
         query_embedding.top_k_similarity(&candidate_embeddings, k)
     }
     
-    pub fn analogy<S: AsRef<str> + Sync>(&mut self, a: S, b: S, c: S, candidates: &[S], k: usize) -> Vec<(usize, f32)> {
+    pub fn analogy<Q, C>(
+        &self,
+        a: Q,
+        b: Q,
+        c: Q,
+        candidates: &[C],
+        k: usize,
+    ) -> Vec<(usize, f32)>
+    where
+        Q: AsRef<str> + Sync,
+        C: AsRef<str> + Sync,
+    {
         let embedding_a = self.embed(a.as_ref());
         let embedding_b = self.embed(b.as_ref());
         let embedding_c = self.embed(c.as_ref());
-        
-        let target = &(&embedding_b - &embedding_a) + &embedding_c;
+    
+        let relationship = &embedding_b - &embedding_a;
+        let target = &relationship + &embedding_c;
         let normalized_target = target.normalize();
-        
+    
         let candidate_embeddings: Vec<Embedding> = self.batch_embed(candidates);
         normalized_target.top_k_similarity(&candidate_embeddings, k)
     }
