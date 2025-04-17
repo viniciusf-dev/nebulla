@@ -46,7 +46,7 @@ fn compute_recall_at_k(embeddings: &NebulaEmbeddings, test_data: &[String], k: u
             
             candidates.shuffle(&mut rng);
             
-            let results = embeddings.nearest_neighbors(query, &candidates, k);
+            let results = embeddings.nearest_neighbors(query, &candidates[..], k);
             
             for (idx, _) in results {
                 if candidates[idx] == test_data[i+1] {
@@ -130,8 +130,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("If '{}' is to '{}' as '{}' is to what?", a, b, c);
         
         let candidates: Vec<String> = test_texts[12..20].to_vec();
-        let analogies = nebula.analogy(a, b, c, &candidates, 3);
-        
+        let analogies = nebula.analogy(a, b, c, &candidates[..], 3);
+
         for (idx, score) in analogies {
             println!("  - '{}' (similarity: {:.4})", candidates[idx], score);
         }
