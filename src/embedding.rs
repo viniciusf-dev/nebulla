@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, Mul};
+use std::ops::Mul;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Embedding(pub Vec<f32>);
@@ -89,6 +89,23 @@ impl Mul<f32> for &Embedding {
     fn mul(self, scalar: f32) -> Embedding {
         let values = self.0.iter()
             .map(|&v| v * scalar)
+            .collect();
+            
+        Embedding(values)
+    }
+}
+
+impl std::ops::Add for &Embedding {
+    type Output = Embedding;
+    
+    fn add(self, other: &Embedding) -> Embedding {
+        if self.dimension() != other.dimension() {
+            panic!("Cannot add embeddings of different dimensions");
+        }
+        
+        let values = self.0.iter()
+            .zip(other.0.iter())
+            .map(|(&a, &b)| a + b)
             .collect();
             
         Embedding(values)
