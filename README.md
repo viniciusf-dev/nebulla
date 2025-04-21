@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="https://github.com/viniciusf-dev/nebulla/blob/main/public/nebulla_icon.png" width="1000" height="350">
+
 [![][version]](https://github.com/viniciusf-dev/nebulla)
 [![][license]](https://github.com/viniciusf-dev/nebulla/blob/master/LICENSE)
 [![][stars]](https://github.com/viniciusf-dev/nebulla)
@@ -481,3 +483,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 [license]: https://img.shields.io/github/license/viniciusf-dev/nebulla?label=License&color=1AD1A5
 [stars]: https://badgen.net/github/stars/viniciusf-dev/nebulla?label=GitHub%20stars&color=1AD1A5
 [commit]: https://img.shields.io/github/last-commit/viniciusf-dev/nebulla?label=Last%20commit&color=1AD1A5
+[logo-url]: https://github.com/viniciusf-dev/nebulla/blob/main/public/nebulla_icon.png
