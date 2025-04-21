@@ -1,4 +1,11 @@
-# Nebulla 🌌
+<div align="center">
+
+[![][version]](https://github.com/viniciusf-dev/nebulla)
+[![][license]](https://github.com/viniciusf-dev/nebulla/blob/master/LICENSE)
+[![][stars]](https://github.com/viniciusf-dev/nebulla)
+[![][commit]](https://github.com/viniciusf-dev/nebulla)
+
+</div>
 
 A lightweight, high-performance text embedding model implemented in Rust.
 
@@ -468,3 +475,9 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ---
 
 *Nebulla* is a project dedicated to high performance, clean code, and ease of use in text embedding tasks. We hope this README provides clarity on both how to get started and the inner workings of the model.
+
+
+[version]: https://img.shields.io/github/v/release/viniciusf-dev/nebulla?label=Version&color=1AD1A5
+[license]: https://img.shields.io/github/license/viniciusf-dev/nebulla?label=License&color=1AD1A5
+[stars]: https://img.shields.io/github/stars/viniciusf-dev/nebulla?label=GitHub%20stars&color=1AD1A5
+[commit]: https://img.shields.io/github/last-commit/viniciusf-dev/nebulla?label=Last%20commit&color=1AD1A5
