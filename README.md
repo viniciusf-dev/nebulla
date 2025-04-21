@@ -479,5 +479,5 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 [version]: https://img.shields.io/github/v/release/viniciusf-dev/nebulla?label=Version&color=1AD1A5
 [license]: https://img.shields.io/github/license/viniciusf-dev/nebulla?label=License&color=1AD1A5
-[stars]: https://img.shields.io/github/stars/viniciusf-dev/nebulla?label=GitHub%20stars&color=1AD1A5
+[stars]: https://badgen.net/github/stars/viniciusf-dev/nebulla?label=GitHub%20stars&color=1AD1A5
 [commit]: https://img.shields.io/github/last-commit/viniciusf-dev/nebulla?label=Last%20commit&color=1AD1A5
