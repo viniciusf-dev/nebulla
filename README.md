@@ -43,6 +43,7 @@ Nebulla is designed to efficiently convert text into numerical vector representa
   - [BM-25 Weighting](#bm-25-weighting)
   - [Embedding Operations](#embedding-operations)
   - [Performance Benchmarking](#performance-benchmarking)
+- [Evaluation](#evaluation)
 - [Examples](#examples)
 - [Contributing](#contributing)
 - [License](#license)
@@ -384,6 +385,103 @@ This will:
 6. Save the trained model to `nebula_model.json`
 
 ---
+
+## Evaluation
+
+Nebulla includes several evaluation modules to measure different aspects of embedding quality and performance. These modules help quantify how well the embeddings capture semantic relationships and perform on specific tasks.
+
+### Clustering Quality
+
+- **File:** `clustering_quality.rs`
+- **Purpose:** Evaluates how well the embedding model clusters semantically related texts.
+- **How It Works:** The module applies k-means clustering to embeddings of labeled texts and compares the resulting clusters with the ground truth labels.
+- **Key Metrics:**
+  - **Purity:** Measures how homogeneous the clusters are with respect to the true labels.
+  - **Normalized Mutual Information:** Quantifies the mutual dependence between the clustering assignment and the ground truth.
+  - **Rand Index:** Measures the similarity between two data clusterings by considering all pairs of samples.
+- **Example Usage:**
+```rust
+let clusters = generate_test_clusters();
+let metrics = evaluate_clustering(&model, &clusters);
+println!("Clustering Metrics: Purity={:.4}, NMI={:.4}, RI={:.4}", 
+         metrics.purity, metrics.normalized_mutual_information, metrics.rand_index);
+```
+
+### Document Retrieval
+
+- **File:** `document_retrieval.rs`
+- **Purpose:** Assesses how well the model retrieves relevant documents based on a query.
+- **How It Works:** For each query, the module ranks documents by embedding similarity and compares the retrieved set with known relevant documents.
+- **Key Metrics:**
+  - **Precision@K:** The proportion of retrieved documents that are relevant.
+  - **Recall@K:** The proportion of relevant documents that are retrieved.
+  - **F1 Score:** The harmonic mean of precision and recall.
+  - **Mean Average Precision (MAP):** Average of precision values at positions where relevant documents are found.
+  - **Mean Reciprocal Rank (MRR):** Average of the reciprocal of the rank at which the first relevant document is found.
+- **Example Usage:**
+```rust
+let documents = vec!["doc1 content", "doc2 content", ...].iter().map(|s| s.to_string()).collect();
+let queries = generate_test_queries(&documents);
+let metrics = evaluate_document_retrieval(&model, &documents, &queries, 5);
+println!("Retrieval Metrics: P@K={:.4}, R@K={:.4}, F1={:.4}, MAP={:.4}, MRR={:.4}",
+         metrics.precision_at_k, metrics.recall_at_k, metrics.f1_score, 
+         metrics.mean_average_precision, metrics.mean_reciprocal_rank);
+```
+
+### Embedding Stability
+
+- **File:** `embedding_stability.rs`
+- **Purpose:** Measures how robust embeddings are to small variations in input text.
+- **How It Works:** The module creates variants of input texts with controlled mutations (word deletion, duplication, reordering, character removal) and measures similarity between original and variant embeddings.
+- **Key Metrics:**
+  - **Average Similarity:** Mean cosine similarity between original and variant embeddings.
+  - **Min/Max Similarity:** Range of cosine similarities observed.
+  - **Standard Deviation:** Variation in similarity across different mutations.
+- **Example Usage:**
+```rust
+let texts = vec!["sample text one", "sample text two"].iter().map(|s| s.to_string()).collect();
+let metrics = evaluate_stability(&model, &texts, 10, 0.3); // 10 variants per text, 30% mutation rate
+println!("Stability Metrics: Avg={:.4}, Min={:.4}, Max={:.4}, StdDev={:.4}",
+         metrics.average_similarity, metrics.min_similarity, 
+         metrics.max_similarity, metrics.standard_deviation);
+```
+
+### Semantic Coherence
+
+- **File:** `semantic_coherence.rs`
+- **Purpose:** Evaluates how well the model captures semantic relationships between words.
+- **How It Works:** The module tests word pairs labeled as either semantically related or unrelated and measures if the embedding similarities align with these expectations.
+- **Key Metrics:**
+  - **Accuracy:** Proportion of correct predictions (high similarity for related pairs, low for unrelated).
+  - **Average Related/Unrelated Similarity:** Mean similarity scores for each group.
+  - **Contrast Score:** Difference between related and unrelated similarities (higher is better).
+- **Example Usage:**
+```rust
+let pairs = generate_test_pairs();
+let result = evaluate_semantic_coherence(&model, &pairs);
+println!("Semantic Coherence: Accuracy={:.4}, Related={:.4}, Unrelated={:.4}, Contrast={:.4}",
+         result.accuracy, result.average_related_similarity, 
+         result.average_unrelated_similarity, result.contrast_score);
+```
+
+### Temporal Ordering
+
+- **File:** `temporal_ordering.rs`
+- **Purpose:** Assesses how well the embedding space preserves temporal relationships in sequential texts.
+- **How It Works:** The module analyzes sequences of texts (like chapters or ordered paragraphs) to determine if consecutive texts are more similar than non-consecutive ones.
+- **Key Metrics:**
+  - **Kendall Tau:** Measures the correlation between the ordering of embedding similarities and the expected ordering.
+  - **Correlation Coefficient:** Difference between the average similarity of consecutive vs. non-consecutive pairs.
+  - **Average Distance:** Mean distance between consecutive embeddings in the sequence.
+- **Example Usage:**
+```rust
+let sequences = generate_test_sequences();
+let metrics = evaluate_temporal_ordering(&model, &sequences);
+println!("Temporal Ordering: Kendall Tau={:.4}, Correlation={:.4}, Avg Distance={:.4}",
+         metrics.kendall_tau, metrics.correlation_coefficient, metrics.average_distance);
+```
+
+These evaluation modules provide comprehensive insights into different aspects of embedding quality, helping to benchmark and improve the Nebulla model across various natural language processing tasks.
 
 ## Examples
 
